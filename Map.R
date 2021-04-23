@@ -122,3 +122,178 @@ write.csv(M, "Mapledata.csv", row.names = FALSE)
 
 
 ######################################################################
+
+setwd("C:/Users/dburl/BD/Maple")
+dat <- read.csv("Mapledata.csv")
+library(dplyr)
+
+
+# # Read Tree regional Biomass data:
+# bvars <- c("TRE_CN", "REGIONAL_DRYBIOT", "REGIONAL_DRYBIOM")
+# biom_df <- read.csv("TREE_REGIONAL_BIOMASS.csv")[, bvars]
+# 
+# names(biom_df)
+# names(biom_df)[1] <- "CN"
+# 
+# library(dplyr)
+# dat <- dat %>% left_join(biom_df, by = "CN")
+# 
+
+str(dat)
+head(dat)
+# Add Species name:
+dat$SciNam <- paste0(dat$GENUS, "_", dat$SPECIES)
+summary(as.factor(dat$SciNam))
+
+
+# Converting data to Metric units:
+dat$DBH <- dat$DIA * 2.54 # DBH inch to cm
+dat$TPH <- dat$TPA_UNADJ/0.405 # acre to hectare
+dat$ELEV <- dat$ELEV*0.305 # ft to m
+dat$TPHMORT <- dat$TPAMORT_UNADJ/0.405
+dat$TPHREMV <- dat$TPAREMV_UNADJ/0.405
+
+dat$SPCD <- as.factor(dat$SPCD)
+dat$STATUSCD <- as.factor(dat$STATUSCD) # choose statuscd 2(dead), 3 (removed)
+dat$AGENTCD <- as.factor(dat$AGENTCD)
+dat$DSTRBCD1 <- as.factor(dat$DSTRBCD1) # observed disturbance within past 5 yrs
+dat$TRTCD1 <- as.factor(dat$TRTCD1) # type of stand treatment within past 5 yrs
+
+head(dat)
+summary(dat$AGENTCD)
+
+# Combine agentcodes and name it as Agents
+dat$AGENTCD_BINS <- NA
+
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(10, 11, 12, 13, 15, 17, 19)] <- "Insect"
+# dat$AGENTCD_BINS <- as.factor(dat$AGENTCD_BINS)
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(20,21,22,23,24,25,26,27,28,29)] <- "Disease"
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(30, 31)] <- "Fire"
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(40, 41,42,43,44,45)] <- "Animal"
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(50,51,52,53,54,55,56)] <- "Weather"
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(60, 65)] <- "VegSupp"
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(70, 71,72,73,76,77)] <- "Unknown"
+dat$AGENTCD_BINS[dat$AGENTCD %in% c(80,81,82,83,84,85,86)] <- "Silvi"
+
+
+dat <- rename(dat, Agents = AGENTCD_BINS)
+summary(as.factor(dat$Agents))
+
+# Identifier for plot and year
+dat$PLT_YR <- paste0(dat$PLT_CN, "_", dat$INVYR)
+
+# Calculate Key plot-level attributes:
+names(dat)
+
+var <- c("PLT_YR", "INVYR", "PLT_CN", "STATUSCD", "DBH", "TPH", "SciNam", "TPHREMV", "TPHMORT",
+         "Agents", "KINDCD", "LAT", "LON", "ELEV", "ECOSUBCD", "VOLCFNET", "SPCD" )
+
+dat1 <- dat[ , var]
+
+# Make Separate csv files for each species of Maple 
+
+redMap <- dat1 %>% filter(SPCD == 316)
+write.csv(redMap, "RedMaple.csv", row.names = FALSE)
+
+sugarMap <- dat1 %>% filter(SPCD == 318)
+write.csv(sugarMap, "SugarMaple.csv", row.names = FALSE)
+
+
+##### Standing trees affected by the disturbance??
+##### Subset dead and removed trees
+redMap <- read.csv("RedMaple.csv")
+
+RM_dead <- subset(redMap, STATUSCD == 2)
+RM_cut <- subset(redMap, STATUSCD == 3)
+
+# Agents summary for all dead and removed/cut maple trees:
+RM_dead$Agents <- as.factor(RM_dead$Agents)
+summary(RM_dead$Agents)
+
+# RM_cut$Agents <- as.factor(RM_cut$Agents)
+# summary(RM_cut$Agents)
+
+# Add time period in the dataset
+RM_dead$Prd <- NA
+RM_dead$Prd[RM_dead$INVYR < 2000] <- "P1"
+RM_dead$Prd[between(RM_dead$INVYR, 2000, 2010)] <- "P2"
+RM_dead$Prd[RM_dead$INVYR > 2010] <- "P3"
+
+summary(as.factor(RM_dead$Prd))
+
+
+tapply(RM_dead$TPHREMV, RM_dead$Prd, mean, na.rm = TRUE)
+tapply(RM_dead$TPHMORT, RM_dead$Prd, sd)
+tapply(RM_dead$TPHMORT, RM_dead$Prd, sum)
+
+# tapply(RM_dead$TPHMORT, RM_dead$Prd, mean, na.rm = TRUE)
+RM_dead %>% 
+  group_by(Prd) %>%
+  summarise(meanTMort = mean(TPHMORT),
+            Tmortsd = sd(TPHMORT), 
+            meanTRemv = mean(TPHREMV, na.rm = TRUE))
+
+
+# Calculate summary count for each agents for three period
+sum_dead <- RM_dead %>%
+  group_by(Prd) %>%
+  count(Agents)
+
+print(sum_dead, n = nrow(sum_dead))
+
+ggplot(sum_dead, aes(Agents, n))+
+  geom_boxplot()
+
+
+print(sum_dead, n = nrow(sum_dead))
+
+glimpse(RM_dead)
+RM_dead %>%
+  count(Agents)
+
+ggplot(RM_dead, aes(Agents)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE)
+
+
+ggplot(DeadRM, aes(P1, fct_reorder(Agents, P1))) +
+  geom_point()
+
+
+
+
+
+
+sum_dead %>%
+  count(Prd,  wt = n)
+
+# Pivot sum_dead to tidydata:
+View(sum_dead)
+DeadRM <- sum_dead %>%
+  pivot_wider(names_from = Prd, values_from = n)
+
+# Visualize trends:
+ggplot(DeadRM, aes(Agents)) +
+  geom_density()
+
+
+# Visualize changes over time:
+ggplot(sum_dead, aes(Agents, n))+
+  geom_line(aes(group = Prd)) +
+  geom_point(aes(color = Prd))
+
+
+
+
+
+M <- RM_dead %>% 
+  group_by(Prd, Agents) %>%
+  summarise(sum(TPHMORT))
+
+print(M, n = nrow(M))
+
+
+
+####################################################
+### Replicate for Sugar Maple
+
