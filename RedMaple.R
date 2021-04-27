@@ -145,6 +145,9 @@ PLT <- tapply(dat1$PLT_CN, dat1$PLT_YR, mean)
 # Year
 YR <- tapply(dat1$INVYR, dat1$PLT_YR, mean)
 
+# Agent
+Agent <- tapply(dat1$Agent, dat1$PLT_YR, funtion(x){which.max(length(x)})
+
 # Merge plot-level data
 PLT_df <- cbind.data.frame(PLT, YR, Coords_x, Coords_y, N, B, N_ar, B_ar, B_mort_perc_ar, B_rem_perc_ar, N_rem_perc_ar, N_rem_perc, N_mort_perc_ar)
 PLT_df$PLT_YR <- paste0(PLT_df$PLT,"_",PLT_df$YR)
